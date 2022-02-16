@@ -2,7 +2,9 @@
 #define ATOMICPLUGINIMPL_H
 
 #include "atomicPlugin.h"
+#ifdef DIRECT_A
 #include "input.h"
+#endif
 #include <atomic>
 
 #ifdef _WIN32

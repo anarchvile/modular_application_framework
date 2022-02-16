@@ -1,14 +1,17 @@
 #ifndef HELLOWORLD_H
 #define HELLOWORLD_H
 
+//#define EVENT_HW
+#define DIRECT_HW
+
 #include "plugin.h"
 
 struct HelloWorldInterface
 {
     #ifdef _WIN32
-        const char*(__cdecl* printHelloWorld)();
+        const char*(__cdecl* helloWorldFunc)();
     #elif __linux__
-        void(*printHelloWorld)();
+        void(*helloWorldFunc)();
     #endif
 };
 

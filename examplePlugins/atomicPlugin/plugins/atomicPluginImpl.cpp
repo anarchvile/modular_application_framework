@@ -10,22 +10,29 @@
 #include <thread>
 
 #include "atomicPluginimpl.h"
+
+#ifdef EVENT_A
+//#include "event.h"
+#endif
+#ifdef DIRECT_A
 #include "runner.h"
 #include "pluginManager.h"
+#endif
 
-//#include "event.h"
-
+#ifdef EVENT_A
+EventStream<double>* es_d;
+EventStream<InputData>* es_i;
+size_t g_id1, g_id2;
+#endif
+#ifdef DIRECT_A
 Runner* runner;
 Input* input;
 PluginManager* pm;
 size_t g_counter = 0;
-std::atomic<size_t> g_atomicInt = 0;
-//size_t g_atomicInt = 0;
 RunnerDesc rDesc;
 InputDesc iDesc;
-//EventStream<double>* es_d;
-//EventStream<InputData>* es_i;
-//size_t g_id1, g_id2;
+#endif
+std::atomic<size_t> g_atomicInt = 0;
 
 void updateTick(double dt)
 {
@@ -41,9 +48,13 @@ void updateEvent(InputData inputData)
 
 void AtomicPluginImpl::initialize(size_t identifier)
 {
+#ifdef EVENT_A
+    es_d = EventStream<double>::Instance();
+    es_i = EventStream<InputData>::Instance();
+#endif
+#ifdef DIRECT_A
     pm = PluginManager::Instance(identifier);
-    //es_d = EventStream<double>::Instance();
-    //es_i = EventStream<InputData>::Instance();
+#endif
 
     std::cout << "AtomicPluginImpl::initialize: " << identifier << std::endl;
 }
@@ -51,14 +62,21 @@ void AtomicPluginImpl::initialize(size_t identifier)
 void AtomicPluginImpl::release()
 {
     std::cout << "AtomicPluginImpl::release" << std::endl;
+#ifdef DIRECT_A
     pm->Unload("runner");
     pm->Unload("input");
+#endif
 }
 
 void AtomicPluginImpl::start()
 {
     std::cout << "AtomicPluginImpl::start" << std::endl;
-    
+#ifdef EVENT_A
+    g_id1 = es_d->subscribe("runner", &(::updateTick));
+    g_id1 = es_i->subscribe("input", &(::updateEvent));
+#endif
+
+#ifdef DIRECT_A
     runner = (Runner*)pm->Load("runner");
     input = (Input*)pm->Load("input");
 
@@ -76,19 +94,21 @@ void AtomicPluginImpl::start()
     iDesc.pyKeyboardUpdate = nullptr;
     iDesc.pyMouseUpdate = nullptr;
     input->push(iDesc);
-    
-    //g_id1 = es_d->subscribe("runner", &(::updateTick));
-    //g_id1 = es_i->subscribe("input", &(::updateEvent));
+#endif
 }
 
 void AtomicPluginImpl::stop()
 {
     std::cout << "AtomicPluginImpl::stop" << std::endl;
+
+#ifdef EVENT_A
+    es_d->unsubscribe("runner", g_id1);
+    es_i->unsubscribe("input", g_id2);
+#endif
+#ifdef DIRECT_A
     runner->pop(rDesc);
     input->pop(iDesc);
-    
-    //es_d->unsubscribe("runner", g_id1);
-    //es_i->unsubscribe("input", g_id2);
+#endif
 }
 
 // Simple update method that signals the runner to unregister itself from the update cycle after 100 iterations.
@@ -98,6 +118,7 @@ void AtomicPluginImpl::updateTick(double dt)
     std::cout << "AtomicPluginImpl::updateTick " + std::to_string(dt) + ", " + std::to_string(g_atomicInt) << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(1));
 
+#ifdef DIRECT_A
     if (g_counter == 4)
     {
         //runner->pop(rDesc);
@@ -105,6 +126,7 @@ void AtomicPluginImpl::updateTick(double dt)
     }
 
     ++g_counter;
+#endif
 }
 
 void AtomicPluginImpl::updateInput(InputData inputData)

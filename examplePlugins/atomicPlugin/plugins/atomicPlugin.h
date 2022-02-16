@@ -1,6 +1,9 @@
 #ifndef ATOMICPLUGIN_H
 #define ATOMICPLUGIN_H
 
+//#define EVENT_A
+#define DIRECT_A
+
 #include "plugin.h"
 
 class AtomicPlugin : public Plugin

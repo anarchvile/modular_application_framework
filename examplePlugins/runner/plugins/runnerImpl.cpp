@@ -14,16 +14,24 @@
 #include <mutex>
 
 #include "runnerImpl.h"
-#include "event.h"
 
+#if defined(EVENT_SYNC_R) || defined(EVENT_ASYNC_R) || defined(EVENT_MULTI_R)
+#include "event.h"
+#endif
+
+#if defined(EVENT_SYNC_R) || defined(EVENT_ASYNC_R) || defined(EVENT_MULTI_R)
+EventStream<double>* es;
+#endif
+#ifdef DIRECT_R
 std::vector<RunnerDesc> Runner::descriptors;
+#endif
+
 std::mutex m;
 bool breakLoop = false;
 bool g_block = false;
-EventStream<double>* es;
-Event<double>* eventPtr;
 std::thread t1, t2;
 
+#ifdef EVENT_MULTI_R
 void callAsyncWrapper(std::chrono::high_resolution_clock::time_point lastTime)
 {
     while (!breakLoop)
@@ -33,28 +41,34 @@ void callAsyncWrapper(std::chrono::high_resolution_clock::time_point lastTime)
         std::chrono::high_resolution_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
         double elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(currentTime - lastTime).count();
 
-        eventPtr->callAsync(elapsed);
+        es->callAsync("runner", elapsed);
     }
 }
+#endif
 
 // Define what processes the plug-in runs once it is loaded into a program by the plugin manager.
 void RunnerImpl::initialize(size_t identifier)
 {
     std::cout << "RunnerImpl::initialize" << std::endl;
+#if defined(EVENT_SYNC_R) || defined(EVENT_ASYNC_R) || defined(EVENT_MULTI_R)
     es = EventStream<double>::Instance();
-    eventPtr = es->create("runner");
+    es->create("runner");
     std::cout << "__________Count from runner__________" << std::endl;
     es->numEvents();
+#endif
 }
 
 // Define what processes the plug-in runs immediately before it is unloaded the plugin manager.
 void RunnerImpl::release()
 {
     std::cout << "RunnerImpl::release" << std::endl;
-    descriptors.clear();
-    es->destroy("runner", eventPtr);
-    //delete es; // Don't want to delete the memory allocated at es, since EventStream is a singleton.
+#if defined(EVENT_SYNC_R) || defined(EVENT_ASYNC_R) || defined(EVENT_MULTI_R)
+    es->destroy("runner");
     es = nullptr;
+#endif
+#ifdef DIRECT_R
+    descriptors.clear();
+#endif
 }
 
 // Orders function descriptors by priority and calls them one-by-one, in order, in a ticking update loop.
@@ -69,9 +83,10 @@ void RunnerImpl::stop()
 {
     std::cout << "RunnerImpl::stop" << std::endl;
     stop2();
-    //thread.detach();
-    //t1.join();
-    //t2.join();
+#ifdef EVENT_MULTI_R
+    t1.join();
+    t2.join();
+#endif
     thread.join();
 }
 
@@ -84,9 +99,10 @@ void RunnerImpl::start2()
     // Note that we can't run std::threads in here if plan on calling this start2() function froum Python via
     // python bindings. If we wish to have multithreading on the python end, we need to implement that functionality
     // natively using python, not through bindings/C++.
-    //t1 = std::thread(callAsyncWrapper, lastTime);
-    //t2 = std::thread(callAsyncWrapper, lastTime);
-
+#ifdef EVENT_MULTI_R
+    t1 = std::thread(callAsyncWrapper, lastTime);
+    t2 = std::thread(callAsyncWrapper, lastTime);
+#else
     while (!breakLoop)
     {
         if (g_block) continue;
@@ -94,15 +110,18 @@ void RunnerImpl::start2()
         std::chrono::high_resolution_clock::time_point currentTime = std::chrono::high_resolution_clock::now();
         double elapsed = std::chrono::duration_cast<std::chrono::duration<double>>(currentTime - lastTime).count();
 
-        // TODO: Should the event system run parallel to the internal update loop on Runner::descriptors?
-        //eventPtr->call(elapsed);
-        eventPtr->callAsync(elapsed);
+// TODO: Should I be able to use both call and callAsync in the same function?
+#ifdef EVENT_SYNC_R
+        es->call("runner", elapsed);
+#elif defined(EVENT_ASYNC_R)
+        es->callAsync("runner", elapsed);
+#endif // EVENT_SYNC_R or EVENT_ASYNC_R
 
         auto epoch = currentTime.time_since_epoch();
         auto value = std::chrono::duration_cast<std::chrono::milliseconds>(epoch);
         long duration = value.count();
-
-        /*for (auto x : Runner::descriptors)
+#ifdef DIRECT_R
+        for (auto x : Runner::descriptors)
         {
             if (x.cUpdate != nullptr)
             {
@@ -112,9 +131,11 @@ void RunnerImpl::start2()
             {
                 x.pyUpdate(elapsed);
             }
-        }*/
+        }
+#endif // DIRECT_R
         lastTime = currentTime;
     }
+#endif // EVENT_MULTI_R
 }
 
 void RunnerImpl::stop2()
@@ -124,6 +145,7 @@ void RunnerImpl::stop2()
 }
 
 // Registers the descriptors of functions that have been newly assigned for updating in the main loop.
+#ifdef DIRECT_R
 void RunnerImpl::push(const RunnerDesc& desc)
 {
     std::cout << "RunnerImpl::push" << std::endl;
@@ -144,8 +166,10 @@ void RunnerImpl::push(const RunnerDesc& desc)
     if (cnt == Runner::descriptors.size()) Runner::descriptors.push_back(desc);
     g_block = false;
 }
+#endif
 
 // Removes function descriptors that have been designated for unsubscription from the main update cycle.
+#ifdef DIRECT_R
 bool RunnerImpl::pop(const RunnerDesc& desc)
 {
     std::cout << "RunnerImpl::pop" << std::endl;
@@ -166,6 +190,7 @@ bool RunnerImpl::pop(const RunnerDesc& desc)
     g_block = false;
     return Runner::descriptors.size() != count;
 }
+#endif
 
 // Define functions with C symbols (create/destroy Runner instance)
 RunnerImpl* g_runner = nullptr;

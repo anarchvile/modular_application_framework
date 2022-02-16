@@ -169,6 +169,7 @@ if not exist "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins" mkdir "
       <ConformanceMode>true</ConformanceMode>
       <AdditionalIncludeDirectories>$(SolutionDir)_build\$(Platform)\$(Configuration)\include\</AdditionalIncludeDirectories>
       <TreatWarningAsError>true</TreatWarningAsError>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>

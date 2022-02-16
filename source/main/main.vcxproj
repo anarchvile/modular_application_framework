@@ -174,6 +174,7 @@
       <WholeProgramOptimization>false</WholeProgramOptimization>
       <WarningLevel>Level2</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -185,8 +186,9 @@
     <PostBuildEvent />
     <PostBuildEvent>
       <Command>copy /Y "$(SolutionDir)startup.cfg" "$(SolutionDir)_build\$(Platform)\$(Configuration)\startup.cfg"
-xcopy "$(SolutionDir)examplePlugins\pythonExamplePlugin\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pythonExamplePlugin\scripts" /e /y /i /r
-xcopy "$(SolutionDir)examplePlugins\pythonEventsExamplePlugin\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pythonEventsExamplePlugin\scripts" /e /y /i /r</Command>
+xcopy "$(SolutionDir)examplePlugins\pyExPlg1\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pyExPlg1\scripts" /e /y /i /r
+xcopy "$(SolutionDir)examplePlugins\pyExPlg2\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pyExPlg2\scripts" /e /y /i /r
+xcopy "$(SolutionDir)examplePlugins\pyExPlg3\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pyExPlg3\scripts" /e /y /i /r</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

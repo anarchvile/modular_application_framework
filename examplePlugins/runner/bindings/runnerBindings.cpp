@@ -19,6 +19,7 @@ namespace
         g_PlgsMan->Unload("runner");
     }
 
+#ifdef DIRECT_R
     void push(const char* name, int priority, std::function<void(double)>& func)
     {
         // assemble descriptor here.
@@ -42,6 +43,7 @@ namespace
         // call Runner::pop
         runner->pop(desc);
     }
+#endif
 
     void start()
     {
@@ -58,8 +60,10 @@ PYBIND11_MODULE(runnerPython, m) {
     m.doc() = "pybind11 runner plugin"; // optional module docstring
     m.def("load", &load, "Load Runner plugin");
     m.def("unload", &unload, "Unload Runner plugin");
+#ifdef DIRECT_R
     m.def("push", &push, "Register a function to be updated on the loop by Runner");
     m.def("pop", &pop, "Unregister a function from being updated on the loop by Runner");
+#endif
     m.def("start", &start, pybind11::call_guard<pybind11::gil_scoped_release>(), "Starts the runner update cycle");
     m.def("stop", &stop, "Stops the runner update cycle");
 }

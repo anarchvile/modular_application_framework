@@ -1,10 +1,16 @@
 #ifndef RUNNER_H
 #define RUNNER_H
 
+//#define EVENT_SYNC_R
+#define EVENT_ASYNC_R
+//#define EVENT_MULTI_R
+#define DIRECT_R
+
 #include "plugin.h"
 #include <vector>
 #include <functional>
 
+#ifdef DIRECT_R
 struct RunnerDesc
 {
     int priority;
@@ -17,6 +23,7 @@ struct RunnerDesc
     std::function<void(double)> pyUpdate;
     #endif
 };
+#endif
 
 class Runner : public Plugin
 {
@@ -28,10 +35,13 @@ public:
 
     virtual void start2() = 0;
     virtual void stop2() = 0;
+
+#ifdef DIRECT_R
     virtual void push(const RunnerDesc& desc) = 0;
     virtual bool pop(const RunnerDesc& desc) = 0;
 
     static std::vector<RunnerDesc> descriptors;
+#endif
 };
 
 #endif // RUNNER_H

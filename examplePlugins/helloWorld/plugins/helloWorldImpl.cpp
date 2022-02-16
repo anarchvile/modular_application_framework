@@ -10,15 +10,28 @@
 #include <thread>
 
 #include "helloWorldImpl.h"
+
+#ifdef EVENT_HW
+#include "event.h"
+#endif
+
+#ifdef DIRECT_HW
 #include "runner.h"
 #include "pluginManager.h"
-//#include "event.h"
+#endif
 
-Runner* runner;
+#ifdef EVENT_HW
+EventStream<double>* es;
+size_t g_id = 0;
+#endif
+
+#ifdef DIRECT_HW
 PluginManager* pm;
-//EventStream<double>* es;
-size_t g_counter = 0, g_id = 0;
+Runner* runner;
 RunnerDesc desc;
+#endif
+
+size_t g_counter = 0;
 HelloWorldInterface hwInterface;
 
 // A locally-defined function we wish to register to the runner for updating on the tick. In this 
@@ -33,9 +46,9 @@ void update(double dt)
 }
 
 // A simple function we wish to later pass by reference to our helloWorld interface.
-const char* printHelloWorld()
+const char* helloWorldFunc()
 {
-    return "A printHelloWorld function defined in helloWorldImpl.cpp";
+    return "A helloWorldFunc function defined in helloWorldImpl.cpp";
 }
 
 // Define plug-in behavior immediately after being loaded. Simulate complex computations upon loading by
@@ -45,12 +58,17 @@ const char* printHelloWorld()
 void HelloWorldImpl::initialize(size_t identifier)
 {
     std::cout << "HelloWorldImpl::initialize: " << identifier << std::endl;
+
+#ifdef EVENT_HW
+    es = EventStream<double>::Instance();
+#endif
+#ifdef DIRECT_HW
     pm = PluginManager::Instance(identifier);
-    //es = EventStream<double>::Instance();
+#endif
     std::cout << "Simulate complex computation during HelloWorld's initialization" << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(3));
 
-    hwInterface.printHelloWorld = &(::printHelloWorld);
+    hwInterface.helloWorldFunc = &(::helloWorldFunc);
 }
 
 // Define plug-in behavior immediately before being unloaded. Simulate complex computations prior to unloading by
@@ -62,7 +80,12 @@ void HelloWorldImpl::release()
     std::cout << "Simulate complex computation during HelloWorld's release" << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(3));
 
+#ifdef EVENT_HW
+    es = nullptr;
+#endif
+#ifdef DIRECT_HW
     pm->Unload("runner");
+#endif
 }
 
 // Starts HelloWorld plugin by pushing a function to runner for updating.
@@ -73,22 +96,30 @@ void HelloWorldImpl::start()
     // we automatically subscribe update() to runner, so in pythonExamplePlugin this function also gets updated by the
     // runner. Think this is okay for now since it's only done for testing purposes, but still something to keep note of...
     
+#ifdef EVENT_HW
+    g_id = es->subscribe("runner", &(::update));
+#endif
+
+#ifdef DIRECT_HW
     runner = (Runner*)pm->Load("runner");
     desc.priority = 1;
     desc.name = "HelloWorldImpl::update";
     desc.cUpdate = &(::update);
     desc.pyUpdate = nullptr;
     runner->push(desc);
-
-    //g_id = es->subscribe("runner", &(::update));
+#endif
 }
 
 // Stops the HelloWorld function from being updated by runner by popping it off.
 void HelloWorldImpl::stop()
 {
     std::cout << "HelloWorldImpl::stop" << std::endl;
-    //es->unsubscribe("runner", g_id);
+#ifdef EVENT_HW
+    es->unsubscribe("runner", g_id);
+#endif
+#ifdef DIRECT_HW
     runner->pop(desc);
+#endif
 }
 
 // Simple preupdate function.
@@ -103,7 +134,7 @@ void HelloWorldImpl::update(double dt)
 {
     std::cout << "HelloWorldImpl::update " << dt << std::endl;
     //std::this_thread::sleep_for(std::chrono::seconds(2));
-
+#ifdef DIRECT_HW
     if (g_counter == 10)
     {
         runner->pop(desc);
@@ -111,6 +142,7 @@ void HelloWorldImpl::update(double dt)
     }
 
     ++g_counter;
+#endif
 }
 
 // Simple postupdate function.

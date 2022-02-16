@@ -22,12 +22,16 @@ class InputImpl : public Input
     void stop();
 
     void start2();
+
+#if defined(DIRECT_KEYBOARD_I) || defined(DIRECT_MOUSE_I)
     void push(const InputDesc& desc);
     bool pop(const InputDesc& desc);
+#endif
 
     std::thread thread;
 };
 
+#ifdef DIRECT_KEYBOARD_I
 struct keyboard_priority_queue
 {
     inline bool operator() (const InputDesc& inputDesc1, const InputDesc& inputDesc2)
@@ -35,7 +39,9 @@ struct keyboard_priority_queue
         return (inputDesc1.keyboardUpdatePriority < inputDesc2.keyboardUpdatePriority);
     }
 };
+#endif // DIRECT_KEYBOARD_I
 
+#ifdef DIRECT_MOUSE_I
 struct mouse_priority_queue
 {
     inline bool operator() (const InputDesc& inputDesc1, const InputDesc& inputDesc2)
@@ -43,5 +49,6 @@ struct mouse_priority_queue
         return (inputDesc1.mouseUpdatePriority < inputDesc2.mouseUpdatePriority);
     }
 };
+#endif // DIRECT_MOUSE_I
 
 #endif // INPUTIMPL_H

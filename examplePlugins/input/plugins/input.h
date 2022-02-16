@@ -1,6 +1,13 @@
 #ifndef INPUT_H
 #define INPUT_H
 
+//#define EVENT_KEYBOARD_I
+//#define EVENT_MOUSE_I
+#define EVENT_RUNNER_I
+#define DIRECT_KEYBOARD_I
+#define DIRECT_MOUSE_I
+//#define DIRECT_RUNNER_I
+
 #include "plugin.h"
 #include <vector>
 #include <functional>
@@ -22,6 +29,7 @@ struct InputData
     bool unknownMouseEvent;
 };
 
+#if defined(DIRECT_KEYBOARD_I) || defined(DIRECT_MOUSE_I)
 struct InputDesc
 {
     int keyboardUpdatePriority;
@@ -37,6 +45,7 @@ struct InputDesc
     void(*mouseUpdate)(InputData);
     #endif
 };
+#endif
 
 class Input : Plugin
 {
@@ -47,10 +56,13 @@ public:
     virtual void stop() = 0;
 
     virtual void start2() = 0;
+
+#if defined(DIRECT_KEYBOARD_I) || defined(DIRECT_MOUSE_I)
     virtual void push(const InputDesc& desc) = 0;
     virtual bool pop(const InputDesc& desc) = 0;
 
     static std::vector<InputDesc> inputDescriptors;
+#endif
 };
 
 #endif //INPUT_H

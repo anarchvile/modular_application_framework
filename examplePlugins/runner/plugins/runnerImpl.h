@@ -23,12 +23,16 @@ class RunnerImpl : public Runner
 
     void start2();
     void stop2();
+
+#ifdef DIRECT_R
     void push(const RunnerDesc& desc);
     bool pop(const RunnerDesc& desc);
+#endif
 
     std::thread thread;
 };
 
+#ifdef DIRECT_R
 struct priority_queue
 {
     inline bool operator() (const RunnerDesc& runnerDesc1, const RunnerDesc& runnerDesc2)
@@ -36,5 +40,6 @@ struct priority_queue
         return (runnerDesc1.priority < runnerDesc2.priority);
     }
 };
+#endif
 
 #endif // RUNNERIMPL_H

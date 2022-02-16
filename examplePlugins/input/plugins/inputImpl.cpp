@@ -28,22 +28,33 @@
 #include <stdio.h>
 
 #include "inputImpl.h"
-//#include "pluginManager.h"
-//#include "runner.h"
+
+#if defined(EVENT_KEYBOARD_I) || defined(EVENT_MOUSE_I) || defined(EVENT_RUNNER_I)
 #include "event.h"
+#endif
+#if defined(DIRECT_RUNNER_I)
+#include "pluginManager.h"
+#include "runner.h"
+#endif
 
-//Runner* runner;
-//PluginManager* pm;
-//Event<InputData>* eventPtr;
+#if defined(EVENT_KEYBOARD_I) || defined(EVENT_MOUSE_I) || defined(EVENT_RUNNER_I)
 EventStream<double>* es;
+size_t g_id1, g_id2, g_id3;
+#endif
 
+#ifdef DIRECT_RUNNER_I
+PluginManager* pm;
+Runner* runner;
+RunnerDesc rDesc;
+#endif
+
+#if defined(DIRECT_KEYBOARD_I) || defined(DIRECT_MOUSE_I)
 std::vector<InputDesc> Input::inputDescriptors;
-std::mutex m;
+#endif
+
 bool breakLoop = false;
 bool g_block = false;
-//RunnerDesc rDesc;
 bool isAsync;
-size_t g_id;
 
 HANDLE hStdin;
 DWORD fdwSaveOldMode;
@@ -193,7 +204,7 @@ void internalIteration(double dt)
         hStdin,      // input buffer handle 
         irInBuf,     // buffer to read into 
         128,         // size of read buffer 
-        &cNumRead)) // number of records read 
+        &cNumRead))  // number of records read 
         ErrorExit("ReadConsoleInput");
 
     // Dispatch the events to the appropriate handler.
@@ -202,9 +213,10 @@ void internalIteration(double dt)
         InputData inputData;
         switch (irInBuf[i].EventType)
         {
-            case KEY_EVENT: // keyboard input 
+            case KEY_EVENT: // keyboard input
                 std::sort(Input::inputDescriptors.begin(), Input::inputDescriptors.end(), keyboard_priority_queue());
                 KeyEventProc(irInBuf[i].Event.KeyEvent, inputData);
+                // TODO: Create a keyboard input event system, process handles (functions) subscribed to keyboard event here as well
                 for (InputDesc desc : Input::inputDescriptors)
                 {
                     if (desc.cKeyboardUpdate != nullptr && desc.pyKeyboardUpdate == nullptr)
@@ -221,6 +233,7 @@ void internalIteration(double dt)
             case MOUSE_EVENT: // mouse input
                 std::sort(Input::inputDescriptors.begin(), Input::inputDescriptors.end(), mouse_priority_queue());
                 MouseEventProc(irInBuf[i].Event.MouseEvent, inputData);
+                // TODO: Create a mouse input event system, process handles (functions) subscribed to keyboard event here as well
                 for (InputDesc desc : Input::inputDescriptors)
                 {
                     if (desc.cMouseUpdate != nullptr && desc.pyMouseUpdate == nullptr)
@@ -257,18 +270,15 @@ void InputImpl::initialize(size_t identifier)
     std::cout << "InputImpl::initialize" << std::endl;
 
     // Get the standard input handle. 
-
     hStdin = GetStdHandle(STD_INPUT_HANDLE);
     if (hStdin == INVALID_HANDLE_VALUE)
         ErrorExit("GetStdHandle");
 
     // Save the current input mode, to be restored on exit. 
-
     if (!GetConsoleMode(hStdin, &fdwSaveOldMode))
         ErrorExit("GetConsoleMode");
 
     // Enable the window and mouse input events.
-
     fdwMode = ENABLE_WINDOW_INPUT | ENABLE_MOUSE_INPUT | ENABLE_INSERT_MODE | ENABLE_EXTENDED_FLAGS;
     if (!SetConsoleMode(hStdin, fdwMode))
         ErrorExit("SetConsoleMode");
@@ -278,20 +288,30 @@ void InputImpl::initialize(size_t identifier)
     std::string configPath = std::string(exeDir) + "..\\plugins\\input\\start_option.cfg";
     parseConfigFile(configPath);
 
-    //pm = PluginManager::Instance(identifier);
+#if defined(EVENT_KEYBOARD_I) || defined(EVENT_MOUSE_I) || defined(EVENT_RUNNER_I)
     es = EventStream<double>::Instance();
+#endif
+#ifdef DIRECT_RUNNER_I
+    pm = PluginManager::Instance(identifier);
+#endif
 }
 
 // Define what processes the plug-in runs immediately before it is unloaded the plugin manager.
 void InputImpl::release()
 {
     std::cout << "InputImpl::release" << std::endl;
+#if defined(DIRECT_KEYBOARD_I) || defined(DIRECT_MOUSE_I)
     inputDescriptors.clear();
+#endif
 
     if (!isAsync)
     {
-        //pm->Unload("runner");
+#if defined(EVENT_KEYBOARD_I) || defined(EVENT_MOUSE_I) || defined(EVENT_RUNNER_I)
         es = nullptr;
+#endif
+#ifdef DIRECT_RUNNER_I
+        pm->Unload("runner");
+#endif
     }
 
     SetConsoleMode(hStdin, fdwSaveOldMode);
@@ -303,7 +323,6 @@ void InputImpl::start()
 
     if (isAsync)
     {
-        //thread = std::thread(startAsync);
         thread = std::thread(&InputImpl::start2, InputImpl());
     }
     else
@@ -325,8 +344,12 @@ void InputImpl::stop()
 
     else
     {
-        //runner->pop(rDesc);
-        es->unsubscribe("runner", g_id);
+#ifdef EVENT_RUNNER_I
+        es->unsubscribe("runner", g_id1);
+#endif
+#ifdef DIRECT_RUNNER_I
+        runner->pop(rDesc);
+#endif
     }
 }
 
@@ -345,18 +368,23 @@ void InputImpl::start2()
 
     else
     {
-        /*runner = (Runner*)pm->Load("runner");
+#ifdef EVENT_RUNNER_I
+        g_id1 = es->subscribe("runner", &(::internalIteration));
+#endif
+#ifdef DIRECT_RUNNER_I
+        runner = (Runner*)pm->Load("runner");
         rDesc.priority = 1;
         rDesc.name = "InputImpl::internalIteration";
         rDesc.cUpdate = &(::internalIteration);
         rDesc.pyUpdate = nullptr;
         
-        runner->push(rDesc);*/
-        g_id = es->subscribe("runner", &(::internalIteration));
+        runner->push(rDesc);
+#endif
     }
 }
 
 // Registers the descriptors of functions that have been newly assigned for updating in the main loop.
+#if defined(DIRECT_KEYBOARD_I) || defined(DIRECT_MOUSE_I)
 void InputImpl::push(const InputDesc& desc)
 {
     std::cout << "InputImpl::push" << std::endl;
@@ -377,8 +405,10 @@ void InputImpl::push(const InputDesc& desc)
     if (cnt == Input::inputDescriptors.size()) Input::inputDescriptors.push_back(desc);
     g_block = false;
 }
+#endif
 
 // Removes function descriptors that have been designated for unsubscription from the main update cycle.
+#if defined(DIRECT_KEYBOARD_I) || defined(DIRECT_MOUSE_I)
 bool InputImpl::pop(const InputDesc& desc)
 {
     std::cout << "InputImpl::pop" << std::endl;
@@ -399,6 +429,7 @@ bool InputImpl::pop(const InputDesc& desc)
     g_block = false;
     return Input::inputDescriptors.size() != count;
 }
+#endif
 
 // Define functions with C symbols (create/destroy Input instance)
 InputImpl* g_input = nullptr;

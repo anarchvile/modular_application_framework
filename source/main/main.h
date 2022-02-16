@@ -1,6 +1,3 @@
-// TODO: 
-// 1. How to pass python class member functions to be registered onto runner's loop...
-
 // Note: For now, there is no dependency tracking between plugins, so they'll be loaded in the order defined
 // by the config files. Any plugins that attempt to register to runner before runner is loaded will safely fail
 // in doing so.
@@ -219,7 +216,8 @@ void initialize(pybind11::module_ sys)
             pybind11::module_ pyPlugin = pybind11::module_::import(_plgName.c_str());
             _plgName[0] = std::toupper(_plgName[0]);
             pybind11::object pyObject = pyPlugin.attr(_plgName.c_str());
-            auto _o = pyObject.attr("initialize")(pyObject, reinterpret_cast<size_t>(g_AppDir.c_str()));
+            auto _o1 = pyObject.attr("__init__")(pyObject);
+            auto _o2 = pyObject.attr("initialize")(pyObject, reinterpret_cast<size_t>(g_AppDir.c_str()));
             g_PlgPtrs.push_back(nullptr);
         }
 
