@@ -24,7 +24,7 @@
 
 namespace
 {
-    std::mutex m;
+    std::recursive_mutex mutex_plgman;
 }
 
 // The plug-in manager is responsible for loading/unloading plug-ins into the program
@@ -34,21 +34,20 @@ namespace
 class PluginManager
 {
 private:
-    static PluginManager* m_instance;
     static std::pair<size_t, const char*> m_appDir;
     static Container* m_container;
 
     static void loadContainer();
 
     PluginManager();
-
-public:
     ~PluginManager();
 
+public:
     static PluginManager* Instance(size_t identifier);
-    static Plugin* Load(const char* pluginName);
-    static void Load(const char* pluginName, Plugin* &ptr_plugin);
-    static void Unload(const char* pluginName);
+    void requestDelete();
+    Plugin* Load(const char* pluginName);
+    void Load(const char* pluginName, Plugin* &ptr_plugin);
+    void Unload(const char* pluginName);
 };
 
 #endif // PLUGINMANAGER_H

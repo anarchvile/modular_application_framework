@@ -18,6 +18,7 @@ namespace
     void unload()
     {
         g_PlgsMan->Unload("input");
+        g_PlgsMan->requestDelete();
     }
 
 #if defined(DIRECT_KEYBOARD_I) || defined(DIRECT_MOUSE_I)

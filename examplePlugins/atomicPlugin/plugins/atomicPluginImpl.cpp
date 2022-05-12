@@ -1,6 +1,9 @@
-// This is a very simple example plug-in that is meant to both illustrate the process behind
-// correctly structuring a plug-in, and highlighting how a plug-in could be expanded to perform
-// more interesting tasks.
+// atomicPlugin demonstrates how atomic data can used in multithreaded environments
+// to preserve the integrity of said data. In this specific example a simple atomic
+// int is incremented using both the runner (on each update loop tick the integer is
+// incremented by 1) and input (each time a keyboard and/or mouse event is registered,
+// the counter is incremented by 1) plugins, both of which are configured to run in their
+// own worker threads separate from the main thread.
 
 #include "stdafx.h"
 #include <assert.h>
@@ -12,7 +15,7 @@
 #include "atomicPluginimpl.h"
 
 #ifdef EVENT_A
-//#include "event.h"
+#include "event.h"
 #endif
 #ifdef DIRECT_A
 #include "runner.h"
@@ -22,7 +25,7 @@
 #ifdef EVENT_A
 EventStream<double>* es_d;
 EventStream<InputData>* es_i;
-size_t g_id1, g_id2;
+std::vector<size_t> g_id1, g_id2, g_id3;
 #endif
 #ifdef DIRECT_A
 Runner* runner;
@@ -49,8 +52,13 @@ void updateEvent(InputData inputData)
 void AtomicPluginImpl::initialize(size_t identifier)
 {
 #ifdef EVENT_A
-    es_d = EventStream<double>::Instance();
-    es_i = EventStream<InputData>::Instance();
+    // Create two separate EventStreams to handle the Events we'll be subscribing to later.
+    // es_d is an EventStream with type "double" template specialization, meaning that it's responsible
+    // for dealing with all Events whose handlers take a single double as their only argument.
+    // es_i is an EventStream with type "struct InputData" template specialization, meaning that it's responsible
+    // for dealing with all Events whose handlers take a single InputData struct as their only argument.
+    es_d = EventStream<double>::Instance(identifier);
+    es_i = EventStream<InputData>::Instance(identifier);
 #endif
 #ifdef DIRECT_A
     pm = PluginManager::Instance(identifier);
@@ -65,6 +73,7 @@ void AtomicPluginImpl::release()
 #ifdef DIRECT_A
     pm->Unload("runner");
     pm->Unload("input");
+    pm->requestDelete();
 #endif
 }
 
@@ -73,7 +82,8 @@ void AtomicPluginImpl::start()
     std::cout << "AtomicPluginImpl::start" << std::endl;
 #ifdef EVENT_A
     g_id1 = es_d->subscribe("runner", &(::updateTick));
-    g_id1 = es_i->subscribe("input", &(::updateEvent));
+    g_id2 = es_i->subscribe("input_keyboard", &(::updateEvent));
+    g_id3 = es_i->subscribe("input_mouse", &(::updateEvent));
 #endif
 
 #ifdef DIRECT_A
@@ -95,6 +105,11 @@ void AtomicPluginImpl::start()
     iDesc.pyMouseUpdate = nullptr;
     input->push(iDesc);
 #endif
+
+    // Put the current thread to sleep for a few seconds so that the stop() function in main.cpp
+    // isn't immediately called and the user has an opportunity to see how g_atomicInt evolves
+    // with time/input.
+    std::this_thread::sleep_for(std::chrono::seconds(5));
 }
 
 void AtomicPluginImpl::stop()
@@ -103,7 +118,11 @@ void AtomicPluginImpl::stop()
 
 #ifdef EVENT_A
     es_d->unsubscribe("runner", g_id1);
-    es_i->unsubscribe("input", g_id2);
+    es_i->unsubscribe("input_keyboard", g_id2);
+    es_i->unsubscribe("input_mouse", g_id3);
+
+    es_d->requestDelete();
+    es_i->requestDelete();
 #endif
 #ifdef DIRECT_A
     runner->pop(rDesc);
@@ -111,24 +130,15 @@ void AtomicPluginImpl::stop()
 #endif
 }
 
-// Simple update method that signals the runner to unregister itself from the update cycle after 100 iterations.
+// Simple update method that increments an atomic int each runner tick.
 void AtomicPluginImpl::updateTick(double dt)
 {
     ++g_atomicInt;
     std::cout << "AtomicPluginImpl::updateTick " + std::to_string(dt) + ", " + std::to_string(g_atomicInt) << std::endl;
     std::this_thread::sleep_for(std::chrono::seconds(1));
-
-#ifdef DIRECT_A
-    if (g_counter == 4)
-    {
-        //runner->pop(rDesc);
-        //runner->stop();
-    }
-
-    ++g_counter;
-#endif
 }
 
+// Simple update method that increments an atomic int each time an input event is registered.
 void AtomicPluginImpl::updateInput(InputData inputData)
 {
     if (inputData.mouseMoved || inputData.keyDown)

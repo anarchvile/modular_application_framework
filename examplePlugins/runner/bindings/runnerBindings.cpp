@@ -1,3 +1,5 @@
+// Python bindings for the Runner plugin.
+
 #include <pybind11/functional.h>
 #include "runner.h"
 #include "pluginManager.h"
@@ -17,14 +19,19 @@ namespace
     void unload()
     {
         g_PlgsMan->Unload("runner");
+        g_PlgsMan->requestDelete();
     }
 
 #ifdef DIRECT_R
     void push(const char* name, int priority, std::function<void(double)>& func)
     {
-        // assemble descriptor here.
+        // Assemble descriptor here.
         RunnerDesc desc;
-        desc.name = name;
+        #ifdef _WIN32
+        desc.name = _strdup(name);
+        #elif defined(__linux)
+        desc.name = strdup(name);
+        #endif
         desc.priority = priority;
         desc.cUpdate = nullptr;
         desc.pyUpdate = func;
@@ -34,9 +41,13 @@ namespace
 
     void pop(const char* name, int priority, std::function<void(double)>& func)
     {
-        // assemble descriptor here.
+        // Assemble descriptor here.
         RunnerDesc desc;
-        desc.name = name;
+        #ifdef _WIN32
+        desc.name = _strdup(name);
+        #elif defined(__linux)
+        desc.name = strdup(name);
+        #endif
         desc.priority = priority;
         desc.cUpdate = nullptr;
         desc.pyUpdate = func;

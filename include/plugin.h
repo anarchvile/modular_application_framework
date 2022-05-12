@@ -1,7 +1,9 @@
 // Base plug-in class from which all other plug-ins are derived from.
 // Requires that all plug-ins have an initialize and release function 
 // implemented, which are called by default when plug-ins are loaded 
-// and unloaded, respectively.
+// and unloaded, respectively. Also requires the presenc of start and
+// stop functions, which define plugin behavior during their first and
+// last update cycle.
 
 #ifndef PLUGIN_H
 #define PLUGIN_H

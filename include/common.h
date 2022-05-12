@@ -6,8 +6,6 @@
 // source files include this file see COMMON_EXPORTS functions as being imported from the
 // plugin, whereas this plugin sees symbols defined with this macro as being exported.
 
-#pragma warning(disable : 4275)
-
 #pragma once
 #ifdef _WIN32 // Microsoft compiler
     #ifdef COMMON_EXPORTS

@@ -39,7 +39,7 @@
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
-    <ConfigurationType>Application</ConfigurationType>
+    <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v142</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
@@ -73,6 +73,10 @@
     <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\lib\</OutDir>
     <IntDir>$(SolutionDir)_intermediate\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\lib\</OutDir>
+    <IntDir>$(SolutionDir)_intermediate\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
@@ -89,7 +93,8 @@
       <OptimizeReferences>true</OptimizeReferences>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(ProjectDir)event.h" "$(ProjectDir)..\..\include\event.h"</Command>
+      <Command>copy /Y "$(ProjectDir)event.h" "$(ProjectDir)..\..\include\event.h"
+if exist "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\event.h" copy /Y "$(ProjectDir)event.h" "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\event.h"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -113,6 +118,10 @@
     <Link>
       <SubSystem>Console</SubSystem>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y "$(ProjectDir)event.h" "$(ProjectDir)..\..\include\event.h"
+if exist "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\event.h" copy /Y "$(ProjectDir)event.h" "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\event.h"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>

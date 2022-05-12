@@ -2,7 +2,6 @@
 #include <pybind11/pybind11.h>
 
 #include "goodbyeWorld.h"
-//#include "runner.h"
 #include "pluginManager.h"
 #include "input.h"
 
@@ -11,13 +10,10 @@ namespace
     PluginManager* g_PlgsMan;
     GoodbyeWorld* goodbyeWorldPtr;
     GoodbyeWorldInterface goodbyeWorldInterface;
-    //Runner* runner;
 
     void load(size_t identifier)
     {
         g_PlgsMan = PluginManager::Instance(identifier);
-
-        //runner = (Runner*)g_PlgsMan->Load("runner");
 
         goodbyeWorldPtr = (GoodbyeWorld*)g_PlgsMan->Load("goodbyeWorld");
         goodbyeWorldInterface = goodbyeWorldPtr->getInterface();
@@ -26,7 +22,7 @@ namespace
     void unload()
     {
         g_PlgsMan->Unload("goodbyeWorld");
-        //g_PlgsMan->Unload("runner");
+        g_PlgsMan->requestDelete();
     }
 
     void printGoodbyeWorld(double dt)
@@ -42,6 +38,11 @@ namespace
     std::string returnGoodbyeWorld()
     {
         return ("Return " + std::string(goodbyeWorldInterface.goodbyeWorldFunc()));
+    }
+
+    void anotherGoodbyeWorldFunc(double dt)
+    {
+        goodbyeWorldInterface.anotherGoodbyeWorldFunc();
     }
 
     void start()
@@ -69,6 +70,7 @@ namespace
             printGoodbyeWorld(id);
             },
             "Prints a goodbye world statement");
+        m.def("another_goodbye_world_func", &anotherGoodbyeWorldFunc, "A random goodybeWorld function");
         m.def("return_goodbye_world",
             []()
             {

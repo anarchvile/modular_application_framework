@@ -1,24 +1,25 @@
 // The plug-in manager is responsible for loading/unloading plug-ins into the program
 // and performing some basic checks, such as whether a plug-in that is currently
 // pending for loading is, in fact, already loaded.
-// By design only one instance of a given dynamic library is allowed at any time.
+// By design we share a single instance of PluginManager across the entire application.
 
 #include "pluginManager.h"
 
-PluginManager* PluginManager::m_instance = 0;
 std::pair<size_t, const char*> PluginManager::m_appDir;
-Container* PluginManager::m_container = 0;
+Container* PluginManager::m_container = nullptr;
 
 PluginManager::PluginManager() 
 {
-
+    std::cout << "PluginManager() has been called and created the PluginManager" << std::endl;
 }
 
 PluginManager::~PluginManager()
 {
-
+    std::cout << "~PluginManager() has been called and destroyed the PluginManager" << std::endl;
 }
 
+// Function to load the shared container plugin, which stores global data that is accessible to all other loaded
+// plugins in the system.
 void PluginManager::loadContainer()
 {
     std::cout << "PluginManager::loadContainer has been called" << std::endl;
@@ -42,17 +43,52 @@ void PluginManager::loadContainer()
     }
 }
 
+// Create a shared PluginManager object (i.e. a dynamically-allocated PluginManager object whose memory address
+// is stored inside the container) if it doesn't exist already, otherwise simply return the memory address of 
+// the PluginManager object.
 PluginManager* PluginManager::Instance(size_t identifier)
 {
     m_appDir = std::pair<size_t, const char*>(identifier, reinterpret_cast<const char*>(identifier)); // dehash the size_t to get the executable's absolute directory.
 
-    if (!PluginManager::m_instance)
+    loadContainer();
+
+    if (m_container->getPlgManRefCount() == 0 && m_container->getPlgMan() == nullptr)
     {
-        PluginManager::m_instance = new PluginManager;
+        std::cout << "___________New PluginManager has been created___________" << std::endl;
+        PluginManager* pm = new PluginManager;
+        m_container->addPlgManRefCount();
+        m_container->setPlgMan(static_cast<void*>(pm));
+        return pm;
     }
-    
-    return PluginManager::m_instance;
+
+    else
+    {
+        std::cout << "___________PluginManager already exists!___________" << std::endl;
+        m_container->addPlgManRefCount();
+        return static_cast<PluginManager*>(m_container->getPlgMan());
+    }
 }
+
+// Attempt to delete the PluginManager object. We include reference counting to ensure that we don't
+// accidentally delete PluginManager while it's still being used in other loaded plugins.
+void PluginManager::requestDelete()
+{
+    if (m_container->getPlgManRefCount() > 1)
+    {
+        m_container->subtractPlgManRefCount();
+    }
+    else
+    {
+        m_container->subtractPlgManRefCount();
+        delete static_cast<PluginManager*>(m_container->getPlgMan());
+    }
+}
+
+// IMPORTANT NOTE ABOUT PluginManager::Load AND PluginManager::Unload
+// Because these two methods are mutex-locked, attempting to spawn new worker threads in any
+// plugin's initialize() or release() methods from which one wishes to call PluginManager::Load()
+// or PluginManager::Unload() to load/unload other plugins will lock up. See the concurrentLoading
+// plugin example for more details.
 
 // The Load method is overloaded with two definitions - the first returns the plug-in pointer,
 // while the second uses an accessor.
@@ -66,18 +102,16 @@ Plugin* PluginManager::Load(const char* pluginName)
     // Plug-in manager may be called from multiple places in parallel.
     // To provide thread safety, only one instance may access the shared
     // internal structures at a time.
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(mutex_plgman);
 
-    // load the shared container that stores information about loaded plug-ins
+    // Load the shared container that stores information about loaded plug-ins/events.
     loadContainer();
 
     Plugin* ptr_plugin = nullptr;
 
     #ifdef _WIN32
-        //std::string pluginPath = std::string(m_appDir.second) + "..\\plugins\\" + pluginName + ".dll";
         std::string pluginPath = std::string(m_appDir.second) + "..\\plugins\\" + pluginName + "\\bin\\" + pluginName + ".dll";
     #elif __linux__
-        //std::string pluginPath = std::string(m_appDir.second) + "../plugins/" + pluginName + ".so";
         std::string pluginPath = std::string(m_appDir.second) + "../plugins/" + pluginName + "/bin/" + pluginName + ".so";
     #endif
 
@@ -88,7 +122,7 @@ Plugin* PluginManager::Load(const char* pluginName)
     auto it = m_container->getPlugins().find(pluginPath);
     if (it == (m_container->getPlugins()).end())
     {
-        // try to load the plugin library
+        // Try to load the plugin library.
         #ifdef _WIN32
             std::wstring stemp = std::wstring(pluginPath.begin(), pluginPath.end());
             LPCWSTR sw = stemp.c_str();
@@ -111,7 +145,7 @@ Plugin* PluginManager::Load(const char* pluginName)
                 fnCreatePlugin CreatePlugin = (fnCreatePlugin)dlsym(handle, (char*)("Create"));
             #endif
 
-            // handle plug-in load
+            // Handle plug-in load.
             if (CreatePlugin != NULL)
             {
                 ptr_plugin = CreatePlugin(pluginPath.c_str());
@@ -120,7 +154,7 @@ Plugin* PluginManager::Load(const char* pluginName)
                     // add the plug-in and library to the shared containers
                     m_container->addPlugin(pluginPath, static_cast<void*>(ptr_plugin));
                     m_container->addHandle(pluginPath, handle);
-                    m_container->addRefCount(std::string(pluginName));
+                    m_container->addPluginRefCount(std::string(pluginName));
                     ptr_plugin->initialize(m_appDir.first);
                     std::cout << pluginPath << " successfully loaded!" << std::endl;
                 }
@@ -153,10 +187,8 @@ Plugin* PluginManager::Load(const char* pluginName)
     {
         std::cout << "Library \"" << pluginPath << "\" already loaded." << std::endl;
         ptr_plugin = static_cast<Plugin*>(it->second);
-        m_container->addRefCount(std::string(pluginName));
+        m_container->addPluginRefCount(std::string(pluginName));
     }
-
-    m.unlock();
 
     return ptr_plugin;
 }
@@ -173,16 +205,14 @@ void PluginManager::Load(const char* pluginName, Plugin* &ptr_plugin)
     // Plug-in manager may be called from multiple places in parallel.
     // To provide thread safety, only one instance may access the shared
     // internal structures at a time.
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(mutex_plgman);
 
-    // load the shared container that stores information about loaded plug-ins
+    // Load the shared container that stores information about loaded plug-ins.
     loadContainer();
 
     #ifdef _WIN32
-        //std::string pluginPath = std::string(m_appDir.second) + "..\\plugins\\" + pluginName + ".dll";
         std::string pluginPath = std::string(m_appDir.second) + "..\\plugins\\" + pluginName + "\\bin\\" + pluginName + ".dll";
     #elif __linux__
-        //std::string pluginPath = std::string(m_appDir.second) + "../plugins/" + pluginName + ".so";
         std::string pluginPath = std::string(m_appDir.second) + "../plugins/" + pluginName + "/bin/" + pluginName + ".so";
     #endif
 
@@ -215,16 +245,16 @@ void PluginManager::Load(const char* pluginName, Plugin* &ptr_plugin)
                 fnCreatePlugin CreatePlugin = (fnCreatePlugin)dlsym(handle, (char*)("Create"));
             #endif
 
-            // handle plug-in load
+            // Handle plug-in load.
             if (CreatePlugin != NULL)
             {
                 ptr_plugin = CreatePlugin(pluginPath.c_str());
                 if (ptr_plugin != NULL)
                 {
-                    // add the plug-in and library to the containers
+                    // Add the plug-in and library to the containers.
                     m_container->addPlugin(pluginPath, static_cast<void*>(ptr_plugin));
                     m_container->addHandle(pluginPath, handle);
-                    m_container->addRefCount(std::string(pluginName));
+                    m_container->addPluginRefCount(std::string(pluginName));
                     ptr_plugin->initialize(m_appDir.first);
                     std::cout << pluginPath << " successfully loaded!" << std::endl;
                 }
@@ -257,10 +287,8 @@ void PluginManager::Load(const char* pluginName, Plugin* &ptr_plugin)
     {
         std::cout << "Library \"" << pluginPath << "\" already loaded." << std::endl;
         ptr_plugin = static_cast<Plugin*>(it->second);
-        m_container->addRefCount(std::string(pluginName));
+        m_container->addPluginRefCount(std::string(pluginName));
     }
-
-    m.unlock();
 }
 
 // To unload a plug-in, this function first checks how many references (i.e. how many separate pointers)
@@ -274,26 +302,24 @@ void PluginManager::Unload(const char* pluginName)
     // Plug-in manager may be called from multiple places in parallel.
     // To provide thread safety, only one instance may access the shared
     // internal structures at a time.
-    m.lock();
 
+    std::lock_guard<std::recursive_mutex> lock(mutex_plgman);
+    
     loadContainer();
 
     #ifdef _WIN32
-        //std::string pluginPath = std::string(m_appDir.second) + "..\\plugins\\" + pluginName + ".dll";
         std::string pluginPath = std::string(m_appDir.second) + "..\\plugins\\" + pluginName + "\\bin\\" + pluginName + ".dll";
     #elif __linux__
-        //std::string pluginPath = std::string(m_appDir.second) + "../plugins/" + pluginName + ".so";
         std::string pluginPath = std::string(m_appDir.second) + "../plugins/" + pluginName + "/bin/" + pluginName + ".so";
     #endif
 
     auto it = m_container->getHandles().find(pluginPath);
     if (it != m_container->getHandles().end())
     {
-        if (m_container->getRefCount()[pluginName] <= 1)
+        if (m_container->getPluginRefCount()[pluginName] <= 1)
         {
-            // remove the plug-in from the shared container
+            // Remove the plug-in from the shared container.
             Plugin* ptr_plugin = static_cast<Plugin*>(m_container->getPlugins().at(pluginPath));
-            m_container->erasePlugin(pluginPath);
 
             #ifdef _WIN32
                 HMODULE handle = it->second;
@@ -314,8 +340,7 @@ void PluginManager::Unload(const char* pluginName)
                 ptr_plugin->release();
                 DestroyPlugin();
                 ptr_plugin = nullptr;
-                m_container->subtractRefCount(pluginName);
-                m_container->eraseRefCount(pluginName);
+                m_container->erasePluginRefCount(pluginName);
                 std::cout << pluginPath << " has been successfully unloaded!" << std::endl;
             }
             else
@@ -323,17 +348,23 @@ void PluginManager::Unload(const char* pluginName)
                 std::cerr << "ERROR: Unable to find symbol \"Destroy\" in library \"" << pluginPath << std::endl;
             }
 
-            // unload the plug-in and remove the library from the map
+            // Unload the plug-in and remove the library from the map.
             #ifdef _WIN32 
                 FreeLibrary(handle);
             #elif __linux__
                 dlclose(handle);
             #endif
+            #ifdef _WIN32
             m_container->eraseHandle(it);
+            #elif __linux__
+            m_container->eraseHandle(it);
+            #endif
+            // Remove the plug-in from the shared container.
+            m_container->erasePlugin(pluginPath);
         }
         else
         {
-            m_container->subtractRefCount(pluginName);
+            m_container->subtractPluginRefCount(pluginName);
         }
     }
 
@@ -341,6 +372,4 @@ void PluginManager::Unload(const char* pluginName)
     {
         std::cout << "WARNING: Trying to unload a plug-in that is already unloaded or has never been loaded." << std::endl;
     }
-
-    m.unlock();
 }

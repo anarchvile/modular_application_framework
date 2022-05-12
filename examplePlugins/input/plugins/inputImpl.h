@@ -31,6 +31,7 @@ class InputImpl : public Input
     std::thread thread;
 };
 
+// Helper struct that simplifies the InputDesc sorting process in our implementation, based on keyboard update priority.
 #ifdef DIRECT_KEYBOARD_I
 struct keyboard_priority_queue
 {
@@ -41,6 +42,7 @@ struct keyboard_priority_queue
 };
 #endif // DIRECT_KEYBOARD_I
 
+// Helper struct that simplifies the InputDesc sorting process in our implementation, based on mouse update priority.
 #ifdef DIRECT_MOUSE_I
 struct mouse_priority_queue
 {

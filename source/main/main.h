@@ -1,6 +1,5 @@
 // Note: For now, there is no dependency tracking between plugins, so they'll be loaded in the order defined
-// by the config files. Any plugins that attempt to register to runner before runner is loaded will safely fail
-// in doing so.
+// by the config files.
 
 #ifndef MAIN_H
 #define MAIN_H
@@ -28,17 +27,20 @@
 #include <sys/stat.h>
 #include "ghc/filesystem.hpp"
 
-#include "helloWorld.h"
+/*#include "helloWorld.h"
 #include "goodbyeWorld.h"
 #include "concurrentLoading.h"
-#include "runner.h"
+#include "runner.h"*/
+#include "container.h"
 #include "pluginManager.h"
+#include "event.h"
 
 #include <pybind11/embed.h>
 
 namespace
 {
-    PluginManager* g_PlgsMan;
+    PluginManager* g_PlgsMan = nullptr;
+    Container* m_container = nullptr;
     std::string g_AppDir, g_PlgsDir;
     std::string g_StartupFile;
     std::vector<std::string> g_PlgNames;
@@ -52,9 +54,7 @@ namespace
     #endif
 }
 
-// set the .exe path to navigate to the configuration file
-// and the plugins folder (where all plugins should live)
-
+// Use the .exe path to navigate to the configuration file and the plugins folder (where all plugins should live).
 void getPaths(const char* appDir = nullptr)
 {
     std::string exeDir;
@@ -70,7 +70,7 @@ void getPaths(const char* appDir = nullptr)
         exeDir = cPath;
         #elif __linux__
         char cPath[PATH_MAX];
-        size_t count = readlink("/proc/self/exe", cPath, PATH_MAX);
+        readlink("/proc/self/exe", cPath, PATH_MAX);
         exeDir = cPath;
         #endif
 
@@ -96,6 +96,7 @@ void getPaths(const char* appDir = nullptr)
     g_StartupFile = exeDir + ".." + delimiter + "startup";
 }
 
+// Append the path of python modules in the include folder to sys.path (python plugin-specific).
 void addPathsToSys(pybind11::module_ sys)
 {
     std::string includeDir = g_AppDir + ".." + delimiter + "include" + delimiter;
@@ -113,8 +114,32 @@ void addPathsToSys(pybind11::module_ sys)
     }
 }
 
-// parse the configuration (or .py) file to determine what plugins should be
-// registered in the update loop of the application during startup
+// Add the .exe path to the container.
+void addPathToContainer()
+{
+    if (m_container == nullptr)
+    {
+        std::cout << "m_container is a null pointer" << std::endl;
+        #ifdef _WIN32
+        std::string intermediateString = g_AppDir + "\\container.dll";
+        std::wstring containerPath = std::wstring(intermediateString.begin(), intermediateString.end());
+        LPCWSTR cp = containerPath.c_str();
+        HMODULE containerHandle = LoadLibrary(cp);
+        typedef Container* (*fnCreateContainer)();
+        fnCreateContainer createContainer = (fnCreateContainer)GetProcAddress(containerHandle, "Create");
+        #elif __linux__
+        std::string containerPath = g_AppDir + "/container.so";
+        void* containerHandle = dlopen(containerPath.c_str(), 3);
+        typedef Container* (*fnCreateContainer)();
+        fnCreateContainer createContainer = (fnCreateContainer)dlsym(containerHandle, (char*)("Create"));
+        #endif
+        m_container = createContainer();
+        m_container->setExeDir(reinterpret_cast<size_t>(g_AppDir.c_str()));
+    }
+}
+
+// Parse the configuration (or .py) file to determine what plugins should be
+// registered in the update loop of the application during startup.
 void parseConfigFile(std::string filePath)
 {
     std::string configFilePath = filePath + ".cfg";
@@ -173,7 +198,8 @@ void parseConfigFile(std::string filePath)
 
     else if (pFile.is_open())
     {
-        std::string _s = delimiter + "startup.py";
+        std::string _ds = std::string(1, delimiter);
+        std::string _s = _ds + std::string("startup.py");
         size_t pos = pyFilePath.find(_s);
         if (pos != std::string::npos)
         {
@@ -192,13 +218,10 @@ void parseConfigFile(std::string filePath)
     }
 }
 
+// Call the initialize function of all plugins, both C++ and python ones.
 void initialize(pybind11::module_ sys)
 {
     g_PlgsMan = PluginManager::Instance(reinterpret_cast<size_t>(g_AppDir.c_str()));
-
-    // The Runner plug-in implements a game engine-style update loop.
-    // Other plug-ins can subscribe their functions to the Runner.
-    // The Runner will call them at every tick.
 
     // Load all plugins listed in config file.
     for (unsigned int i = 0; i < g_PlgNames.size(); ++i)
@@ -207,7 +230,8 @@ void initialize(pybind11::module_ sys)
         std::string pyPluginPath = pyPluginDir + delimiter + g_PlgNames[i] + ".py";
         // If there exists a valid .py plugin, we assume that all initialization/updating/releasing behavior is handled
         // by that python plugin, so we delegate those tasks to it and call its relevant functions. If no such python
-        // file exists, then try to load the C++ plugin instead.
+        // file exists, then try to load the C++ plugin instead. In other words, python scripts take precedence over C++
+        // files when deciding which to load for a single plugin.
         struct stat buffer;
         if (stat(pyPluginPath.c_str(), &buffer) == 0)
         {
@@ -228,7 +252,7 @@ void initialize(pybind11::module_ sys)
     }
 }
 
-// global release (unload) function for all plug-ins
+// Global release (unload) function for all plug-ins.
 void release(pybind11::module_ sys)
 {
     for (unsigned int i = 0; i < g_PlgNames.size(); ++i)
@@ -254,7 +278,7 @@ void release(pybind11::module_ sys)
     }
 }
 
-// global update function for all loaded plug-ins
+// Global start function for all loaded plug-ins.
 void start(pybind11::module_ sys)
 {
     for (unsigned int i = 0; i < g_PlgNames.size(); ++i)
@@ -280,14 +304,15 @@ void start(pybind11::module_ sys)
     }
 }
 
+// Global stop function for all loaded plug-ins.
 void stop(pybind11::module_ sys)
 {
     for (unsigned int i = 0; i < g_PlgNames.size(); ++i)
     {
         std::string pyPluginDir = g_PlgsDir + g_PlgNames[i] + delimiter + "scripts";
         std::string pyPluginPath = pyPluginDir + delimiter + g_PlgNames[i] + ".py";
-        // If we're loading python plugins, then assume all start functions will be called via python.
-        // Otherwise call the C++ equivalent start functions for each plugin.
+        // If we're loading python plugins, then assume all stop functions will be called via python.
+        // Otherwise call the C++ equivalent stop functions for each plugin.
         struct stat buffer;
         if (stat(pyPluginPath.c_str(), &buffer) == 0)
         {
@@ -305,17 +330,19 @@ void stop(pybind11::module_ sys)
     }
 }
 
-// initialize at startup whatever plugins the configuration file specified
+// Initialize at startup whatever plugins the configuration file specified.
 void loadPlugins(pybind11::module_ sys)
 {
     std::cout << "loadPlugins has been called" << std::endl;
     initialize(sys);
 }
 
+// Release all loaded plugins.
 void unloadPlugins(pybind11::module_ sys)
 {
     std::cout << "unloadPlugins has been called" << std::endl;
     release(sys);
+    g_PlgsMan->requestDelete();
 }
 
 #endif // MAIN_H

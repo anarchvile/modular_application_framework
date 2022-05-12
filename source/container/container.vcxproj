@@ -75,8 +75,8 @@
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <LinkIncremental>true</LinkIncremental>
-    <OutDir>$(SolutionDir)\_build\$(Platform)\$(Configuration)\bin\</OutDir>
-    <IntDir>$(SolutionDir)\_intermediate\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\bin\</OutDir>
+    <IntDir>$(SolutionDir)_intermediate\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <LinkIncremental>false</LinkIncremental>
@@ -108,11 +108,25 @@
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;CONTAINER_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(SolutionDir)_build\$(Platform)\$(Configuration)\include\</AdditionalIncludeDirectories>
+      <IntrinsicFunctions>false</IntrinsicFunctions>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
+    <PostBuildEvent>
+      <Command>copy /Y "$(ProjectDir)container.h" "$(ProjectDir)..\..\include\container.h"
+if exist "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\container.h" copy /Y "$(ProjectDir)container.h" "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\container.h"
+</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if not exist "$(SolutionDir)_build\$(Platform)\$(Configuration)\lib" mkdir "$(SolutionDir)_build\$(Platform)\$(Configuration)\lib"
+if not exist "$(SolutionDir)_build\$(Platform)\$(Configuration)\include" xcopy "$(SolutionDir)include" "$(SolutionDir)_build\$(Platform)\$(Configuration)\include" /e /y /i /r
+if not exist "$(SolutionDir)_build\$(Platform)\$(Configuration)\lib\python37.lib" copy /Y "$(SolutionDir)lib\windows\python37.lib" "$(SolutionDir)_build\$(Platform)\$(Configuration)\lib\python37.lib"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>
@@ -152,8 +166,15 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
-      <Command>copy /Y "$(ProjectDir)container.h" "$(ProjectDir)..\..\include\container.h"</Command>
+      <Command>copy /Y "$(ProjectDir)container.h" "$(ProjectDir)..\..\include\container.h"
+if exist "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\container.h" copy /Y "$(ProjectDir)container.h" "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\container.h"
+</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if not exist "$(SolutionDir)_build\$(Platform)\$(Configuration)\lib" mkdir "$(SolutionDir)_build\$(Platform)\$(Configuration)\lib"
+if not exist "$(SolutionDir)_build\$(Platform)\$(Configuration)\include" xcopy "$(SolutionDir)include" "$(SolutionDir)_build\$(Platform)\$(Configuration)\include" /e /y /i /r
+if not exist "$(SolutionDir)_build\$(Platform)\$(Configuration)\lib\python37.lib" copy /Y "$(SolutionDir)lib\windows\python37.lib" "$(SolutionDir)_build\$(Platform)\$(Configuration)\lib\python37.lib"</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="container.h" />

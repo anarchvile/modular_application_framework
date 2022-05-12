@@ -25,17 +25,18 @@ class RunnerImpl : public Runner
     void stop2();
 
 #ifdef DIRECT_R
-    void push(const RunnerDesc& desc);
-    bool pop(const RunnerDesc& desc);
+    void push(RunnerDesc desc);
+    bool pop(RunnerDesc desc);
 #endif
 
     std::thread thread;
 };
 
+// Helper struct that simplifies the RunnerDesc sorting process in our implementation.
 #ifdef DIRECT_R
 struct priority_queue
 {
-    inline bool operator() (const RunnerDesc& runnerDesc1, const RunnerDesc& runnerDesc2)
+    inline bool operator() (RunnerDesc& runnerDesc1, RunnerDesc& runnerDesc2)
     {
         return (runnerDesc1.priority < runnerDesc2.priority);
     }

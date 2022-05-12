@@ -1,8 +1,9 @@
+// Python bindings for the helloWorld plugin.
+
 #pragma warning(disable:4522)
 #include <pybind11/pybind11.h>
 
 #include "helloWorld.h"
-//#include "runner.h"
 #include "pluginManager.h"
 #include "input.h"
 
@@ -12,14 +13,10 @@ namespace
     std::string g_AppDir;
     HelloWorld* helloWorldPtr;
     HelloWorldInterface helloWorldInterface;
-    //Runner* runner;
 
     void load(size_t identifier)
     {
         g_PlgsMan = PluginManager::Instance(identifier);
-
-        //runner = (Runner*)g_PlgsMan->Load("runner");
-
         helloWorldPtr = (HelloWorld*)g_PlgsMan->Load("helloWorld");
         helloWorldInterface = helloWorldPtr->getInterface();
     }
@@ -27,7 +24,7 @@ namespace
     void unload()
     {
         g_PlgsMan->Unload("helloWorld");
-        //g_PlgsMan->Unload("runner");
+        g_PlgsMan->requestDelete();
     }
 
     void printHelloWorld(InputData id)

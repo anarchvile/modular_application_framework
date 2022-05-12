@@ -18,11 +18,19 @@
 struct ContainerImpl : Container
 {
 public:
-    std::map<std::string, int> &getRefCount();
-    void addRefCount(std::string pluginName);
-    void subtractRefCount(std::string pluginName);
-    void eraseRefCount(std::string pluginName);
+    size_t getExeDir();
+    void setExeDir(size_t identifier);
 
+    size_t& getPlgManRefCount();
+    void addPlgManRefCount();
+    void subtractPlgManRefCount();
+    void* getPlgMan();
+    void setPlgMan(void* plgManPtr);
+
+    std::map<std::string, size_t> &getPluginRefCount();
+    void addPluginRefCount(std::string pluginName);
+    void subtractPluginRefCount(std::string pluginName);
+    void erasePluginRefCount(std::string pluginName);
     std::map<std::string, void*> &getPlugins();
     void addPlugin(std::string pluginPath, void* ptr_plugin);
     void erasePlugin(std::string pluginPath);
@@ -41,10 +49,17 @@ public:
     void addEventRefCount(std::string name);
     void subtractEventRefCount(std::string name);
     void eraseEventRefCount(std::string name);
-
     std::map<std::string, void*>& getEvents();
     void addEvent(std::string name, void* ptr_event);
     void eraseEvent(std::string name);
+
+    std::map<std::string, size_t>& getEventStreamRefCount();
+    void addEventStreamRefCount(std::string type);
+    void subtractEventStreamRefCount(std::string type);
+    void eraseEventStreamRefCount(std::string type);
+    std::map<std::string, void*>& getEventStreams();
+    void addEventStream(std::string type, void* ptr_eventStream);
+    void eraseEventStream(std::string type);
 };
 
 extern "C" CONTAINER ContainerImpl* Create();

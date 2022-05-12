@@ -71,10 +71,10 @@
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)\_build\$(Platform)\$(Configuration)\bin\</OutDir>
-    <IntDir>$(SolutionDir)\_intermediate\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir>$(SolutionDir)_intermediate\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\bin\</OutDir>
+    <OutDir>$(SolutionDir)\_build\$(Platform)\$(Configuration)\bin\</OutDir>
     <IntDir>$(SolutionDir)_intermediate\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -84,6 +84,12 @@
       <SDLCheck>true</SDLCheck>
       <ConformanceMode>true</ConformanceMode>
     </ClCompile>
+    <PostBuildEvent>
+      <Command>copy /Y "$(ProjectDir)plugin.h" "$(ProjectDir)..\..\include\plugin.h"
+if exist "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\plugin.h" copy /Y "$(ProjectDir)plugin.h" "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\plugin.h"
+copy /Y "$(ProjectDir)plugin.py" "$(ProjectDir)..\..\include\plugin.py"
+if exist "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\plugin.py" copy /Y "$(ProjectDir)plugin.py" "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\plugin.py"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -122,7 +128,9 @@
     </Link>
     <PostBuildEvent>
       <Command>copy /Y "$(ProjectDir)plugin.h" "$(ProjectDir)..\..\include\plugin.h"
-copy /Y "$(ProjectDir)plugin.py" "$(ProjectDir)..\..\include\plugin.py"</Command>
+if exist "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\plugin.h" copy /Y "$(ProjectDir)plugin.h" "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\plugin.h"
+copy /Y "$(ProjectDir)plugin.py" "$(ProjectDir)..\..\include\plugin.py"
+if exist "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\plugin.py" copy /Y "$(ProjectDir)plugin.py" "$(ProjectDir)..\..\_build\$(Platform)\$(Configuration)\include\plugin.py"</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -1,8 +1,11 @@
 #ifndef ATOMICPLUGIN_H
 #define ATOMICPLUGIN_H
 
-//#define EVENT_A
-#define DIRECT_A
+// Convenience macros to let the user quickly switch between having the atomicPlugin subscribe its update
+// functions to runner, keyboard, and mouse events, or directly pushing its update function to the runner
+// and input plugins to be iterated on.
+#define EVENT_A
+//#define DIRECT_A
 
 #include "plugin.h"
 

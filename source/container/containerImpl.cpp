@@ -7,97 +7,133 @@
 #include "stdafx.h" // this header needs to come first
 #include <mutex>
 #include "containerImpl.h"
+#include "pluginManager.h"
 
+// Share this plugin (.dll or .so) across the entire application.
 #pragma data_seg("SHARED")
+size_t g_exeDir = 0;
 ContainerImpl* g_pmc = nullptr;
-std::map<std::string, int> g_ref;
+size_t g_PlgsManRef = 0;
+void* g_PlgsMan = nullptr;
+std::map<std::string, size_t> g_pluginsRef;
 std::map<std::string, void*> g_plugins;
 #ifdef _WIN32
 std::map<std::string, HMODULE> g_handles;
 #elif __linux__
 std::map<std::string, void*> g_handles;
 #endif
-std::map<std::string, void*> g_events;
 std::map<std::string, size_t> g_eventsRef;
+std::map<std::string, void*> g_events;
+std::map<std::string, size_t> g_eventStreamsRef;
+std::map<std::string, void*> g_eventStreams;
 #pragma data_seg()
 
-std::mutex m;
+std::recursive_mutex m_lock;
 
-// reference counter
-std::map<std::string, int> &ContainerImpl::getRefCount()
+size_t ContainerImpl::getExeDir()
 {
-    return g_ref;
+    return g_exeDir;
 }
 
-void ContainerImpl::addRefCount(std::string pluginName)
+void ContainerImpl::setExeDir(size_t identifier)
 {
-    m.lock();
-    if (g_ref.find(pluginName) != g_ref.end())
+    g_exeDir = identifier;
+}
+
+size_t& ContainerImpl::getPlgManRefCount()
+{
+    return g_PlgsManRef;
+}
+
+void ContainerImpl::addPlgManRefCount()
+{
+    ++g_PlgsManRef;
+}
+
+void ContainerImpl::subtractPlgManRefCount()
+{
+    --g_PlgsManRef;
+}
+
+void* ContainerImpl::ContainerImpl::getPlgMan()
+{
+    return g_PlgsMan;
+}
+
+void ContainerImpl::setPlgMan(void* plgManPtr)
+{
+    g_PlgsMan = plgManPtr;
+}
+
+// Reference counter for plugins.
+std::map<std::string, size_t> &ContainerImpl::getPluginRefCount()
+{
+    return g_pluginsRef;
+}
+
+void ContainerImpl::addPluginRefCount(std::string pluginName)
+{
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
+    if (g_pluginsRef.find(pluginName) != g_pluginsRef.end())
     {
-        g_ref.at(pluginName) += 1;
+        g_pluginsRef.at(pluginName) += 1;
     }
     else
     {
-        g_ref.insert(std::pair<std::string, int>(pluginName, 1));
+        g_pluginsRef.insert(std::pair<std::string, size_t>(pluginName, 1));
     }
-    m.unlock();
 }
 
-void ContainerImpl::subtractRefCount(std::string pluginName)
+void ContainerImpl::subtractPluginRefCount(std::string pluginName)
 {
-    m.lock();
-    if (g_ref.find(pluginName) != g_ref.end())
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
+    if (g_pluginsRef.find(pluginName) != g_pluginsRef.end())
     {
-        g_ref.at(pluginName) -= 1;
+        g_pluginsRef.at(pluginName) -= 1;
     }
-    m.unlock();
 }
 
-void ContainerImpl::eraseRefCount(std::string pluginName)
+void ContainerImpl::erasePluginRefCount(std::string pluginName)
 {
-    m.lock();
-    g_ref.erase(pluginName);
-    m.unlock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
+    g_pluginsRef.erase(pluginName);
 }
 
-// plug-in pointers
-std::map<std::string, void*> &ContainerImpl::getPlugins()
+// Plug-in pointers.
+std::map<std::string, void*>& ContainerImpl::getPlugins()
 {
     return g_plugins;
 }
 
 void ContainerImpl::addPlugin(std::string pluginPath, void* ptr_plugin)
 {
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     g_plugins[pluginPath] = ptr_plugin;
-    m.unlock();
 }
 
 void ContainerImpl::erasePlugin(std::string pluginPath)
 {
-    m.lock();
-    //delete g_plugins[pluginPath];
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     g_plugins.erase(pluginPath);
-    m.unlock();
 }
 
-// plug-in handles
+// Plug-in handles
 #ifdef _WIN32
-std::map<std::string, HMODULE> &ContainerImpl::getHandles()
+std::map<std::string, HMODULE>& ContainerImpl::getHandles()
 {
     return g_handles;
 }
 void ContainerImpl::addHandle(std::string pluginPath, HMODULE handle)
 {
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     g_handles[pluginPath] = handle;
-    m.unlock();
 }
 void ContainerImpl::eraseHandle(std::map<std::string, HMODULE>::iterator it)
 {
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
+    //m.lock;
     g_handles.erase(it);
-    m.unlock();
+    //m.unlock();
 }
 #elif __linux__
 std::map<std::string, void*> &ContainerImpl::getHandles()
@@ -106,18 +142,17 @@ std::map<std::string, void*> &ContainerImpl::getHandles()
 }
 void ContainerImpl::addHandle(std::string pluginPath, void* handle)
 {
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     g_handles[pluginPath] = handle;
-    m.unlock();
 }
 void ContainerImpl::eraseHandle(std::map<std::string, void*>::iterator it)
 {
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     g_handles.erase(it);
-    m.unlock();
 }
 #endif
 
+// Reference counter for events.
 std::map<std::string, size_t> &ContainerImpl::getEventRefCount()
 {
     return g_eventsRef;
@@ -125,35 +160,33 @@ std::map<std::string, size_t> &ContainerImpl::getEventRefCount()
 
 void ContainerImpl::addEventRefCount(std::string name)
 {
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     if (g_eventsRef.find(name) != g_eventsRef.end())
     {
-        g_eventsRef.at(name) += 1;
+        ++g_eventsRef.at(name);
     }
     else
     {
         g_eventsRef.insert(std::pair<std::string, int>(name, 1));
     }
-    m.unlock();
 }
 
 void ContainerImpl::subtractEventRefCount(std::string name)
 {
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     if (g_eventsRef.find(name) != g_eventsRef.end())
     {
-        g_eventsRef.at(name) -= 1;
+        --g_eventsRef.at(name);
     }
-    m.unlock();
 }
 
 void ContainerImpl::eraseEventRefCount(std::string name)
 {
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     g_eventsRef.erase(name);
-    m.unlock();
 }
 
+// Store void pointers to Events.
 std::map<std::string, void*>& ContainerImpl::getEvents()
 {
     return g_events;
@@ -161,20 +194,67 @@ std::map<std::string, void*>& ContainerImpl::getEvents()
 
 void ContainerImpl::addEvent(std::string name, void* ptr_event)
 {
-    m.lock();
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     g_events[name] = ptr_event;
-    m.unlock();
 }
 
 void ContainerImpl::eraseEvent(std::string name)
 {
-    m.lock();
-    //delete g_events[name];
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
     g_events.erase(name);
-    m.unlock();
 }
 
-// create a container instance
+std::map<std::string, size_t>& ContainerImpl::getEventStreamRefCount()
+{
+    return g_eventStreamsRef;
+}
+
+void ContainerImpl::addEventStreamRefCount(std::string type)
+{
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
+    if (g_eventStreamsRef.find(type) != g_eventStreamsRef.end())
+    {
+        ++g_eventStreamsRef.at(type);
+    }
+    else
+    {
+        g_eventStreamsRef.insert(std::pair<std::string, int>(type, 1));
+    }
+}
+
+void ContainerImpl::subtractEventStreamRefCount(std::string type)
+{
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
+    if (g_eventStreamsRef.find(type) != g_eventStreamsRef.end())
+    {
+        --g_eventStreamsRef.at(type);
+    }
+}
+
+void ContainerImpl::eraseEventStreamRefCount(std::string type)
+{
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
+    g_eventStreamsRef.erase(type);
+}
+
+std::map<std::string, void*>& ContainerImpl::getEventStreams()
+{
+    return g_eventStreams;
+}
+
+void ContainerImpl::addEventStream(std::string type, void* ptr_eventStream)
+{
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
+    g_eventStreams[type] = ptr_eventStream;
+}
+
+void ContainerImpl::eraseEventStream(std::string type)
+{
+    std::lock_guard<std::recursive_mutex> lock(m_lock);
+    g_eventStreams.erase(type);
+}
+
+// Create a container instance.
 extern "C" CONTAINER ContainerImpl* Create()
 {
     if (g_pmc != nullptr)

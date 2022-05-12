@@ -72,9 +72,9 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <OutDir>$(SolutionDir)\_build\$(Platform)\$(Configuration)\bin\</OutDir>
+    <OutDir>$(SolutionDir)_build\$(Platform)\$(Configuration)\bin\</OutDir>
     <LinkIncremental>true</LinkIncremental>
-    <IntDir>$(SolutionDir)\_intermediate\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
+    <IntDir>$(SolutionDir)_intermediate\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <OutDir>$(SolutionDir)\_build\$(Platform)\$(Configuration)\bin\</OutDir>
@@ -96,16 +96,17 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(SolutionDir)\_build\$(Platform)\$(Configuration)\include\</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(SolutionDir)_build\$(Platform)\$(Configuration)\include\</AdditionalIncludeDirectories>
       <OmitFramePointers>false</OmitFramePointers>
-      <WarningLevel>Level1</WarningLevel>
+      <WarningLevel>Level2</WarningLevel>
       <TreatWarningAsError>true</TreatWarningAsError>
+      <LanguageStandard>stdcpp17</LanguageStandard>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <AdditionalDependencies>pluginManager.lib;python37.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)\_build\$(Platform)\$(Configuration)\lib;..\..\_programs\Python37\libs</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(SolutionDir)_build\$(Platform)\$(Configuration)\lib;$(SolutionDir)..\..\_programs\Python37\libs;$(SolutionDir)..\..\_programs\Python37</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <ProjectReference>
@@ -113,7 +114,10 @@
     </ProjectReference>
     <PostBuildEvent />
     <PostBuildEvent>
-      <Command>copy /Y "$(SolutionDir)main.cfg" "$(SolutionDir)_build\$(Platform)\$(Configuration)\main.cfg"</Command>
+      <Command>copy /Y "$(SolutionDir)startup.cfg" "$(SolutionDir)_build\$(Platform)\$(Configuration)\startup.cfg"
+xcopy "$(SolutionDir)examplePlugins\pyExPlg1\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pyExPlg1\scripts" /e /y /i /r
+xcopy "$(SolutionDir)examplePlugins\pyExPlg2\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pyExPlg2\scripts" /e /y /i /r
+</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -179,8 +183,8 @@
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>false</GenerateDebugInformation>
-      <AdditionalDependencies>pluginManager.lib; python37.lib</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(SolutionDir)_build\$(Platform)\$(Configuration)\lib;..\..\_programs\Python37\libs</AdditionalLibraryDirectories>
+      <AdditionalDependencies>pluginManager.lib;python37.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(SolutionDir)_build\$(Platform)\$(Configuration)\lib;$(SolutionDir)..\..\_programs\Python37\libs;$(SolutionDir)..\..\_programs\Python37</AdditionalLibraryDirectories>
       <LinkTimeCodeGeneration>Default</LinkTimeCodeGeneration>
     </Link>
     <PostBuildEvent />
@@ -188,7 +192,7 @@
       <Command>copy /Y "$(SolutionDir)startup.cfg" "$(SolutionDir)_build\$(Platform)\$(Configuration)\startup.cfg"
 xcopy "$(SolutionDir)examplePlugins\pyExPlg1\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pyExPlg1\scripts" /e /y /i /r
 xcopy "$(SolutionDir)examplePlugins\pyExPlg2\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pyExPlg2\scripts" /e /y /i /r
-xcopy "$(SolutionDir)examplePlugins\pyExPlg3\scripts" "$(SolutionDir)_build\$(Platform)\$(Configuration)\plugins\pyExPlg3\scripts" /e /y /i /r</Command>
+</Command>
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>

@@ -22,9 +22,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "plugin", "source\plugin\plu
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "event", "source\event\event.vcxproj", "{6C06FE5E-4A36-4D13-8C2A-A869B4DA1CE4}"
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "eventPython", "source\eventPython\eventPython.vcxproj", "{2548BBAC-12B0-47A3-950C-462571755988}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "eventPython", "source\event\bindings\eventPython.vcxproj", "{2548BBAC-12B0-47A3-950C-462571755988}"
 	ProjectSection(ProjectDependencies) = postProject
 		{6C06FE5E-4A36-4D13-8C2A-A869B4DA1CE4} = {6C06FE5E-4A36-4D13-8C2A-A869B4DA1CE4}
+		{EE7D9DD3-F8C5-4894-9990-6B429591D0CF} = {EE7D9DD3-F8C5-4894-9990-6B429591D0CF}
 	EndProjectSection
 EndProject
 Global

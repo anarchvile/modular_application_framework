@@ -21,10 +21,10 @@
     <ClInclude Include="targetver.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\include\common.h">
+    <ClInclude Include="pluginManager.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="pluginManager.h">
+    <ClInclude Include="common.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

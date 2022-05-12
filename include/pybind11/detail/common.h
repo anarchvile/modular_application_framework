@@ -205,13 +205,21 @@
 #  define PYBIND11_HAS_U8STRING
 #endif
 
-
 //#include <Python.h>
 //#include <frameobject.h>
 //#include <pythread.h>
-#include <../../../../_build/x64/Release/include/python/include/Python.h>
-#include <../../../../_build/x64/Release/include/python/include/frameobject.h>
-#include <../../../../_build/x64/Release/include/python/include/pythread.h>
+//#include <../../../../_build/x64/Release/include/python/include/Python.h>
+//#include <../../../../_build/x64/Release/include/python/include/frameobject.h>
+//#include <../../../../_build/x64/Release/include/python/include/pythread.h>
+#if defined(WIN32) || defined(_WIN32)
+#include "../../python_windows/include/Python.h"
+#include "../../python_windows/include/frameobject.h"
+#include "../../python_windows/include/pythread.h"
+#elif __linux__
+#include "../../python_linux/include/Python.h"
+#include "../../python_linux/include/frameobject.h"
+#include "../../python_linux/include/pythread.h"
+#endif
 
 /* Python #defines overrides on all sorts of core functions, which
    tends to weak havok in C++ codebases that expect these to work
